@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador de AFD</title>
+<style>
+:root{
+  --bg:#f3f5fa; --card:#ffffff; --ink:#1c2333; --muted:#667085; --line:#e3e7ef;
+  --brand:#4f46e5; --brand-d:#3730a3; --side:#141a2e; --side-2:#1e2640;
+  --ok:#15803d; --ok-bg:#e8f7ee; --bad:#b91c1c; --bad-bg:#fdecec;
+  --warn:#92400e; --warn-bg:#fff4db; --info-bg:#eaf0ff;
+  --edge:#475569; --node:#334155; --hl:#ea580c;
+  --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 14px rgba(16,24,40,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+.app{display:flex;min-height:100vh}
+.side{width:270px;background:var(--side);color:#e6e9f5;padding:20px 16px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh;overflow:auto;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#22d3ee);display:grid;place-items:center;font-size:24px;font-weight:700;color:#fff}
+.brand b{display:block;font-size:16px}
+.brand small{color:#9aa4c7}
+.side h4{margin:0 0 8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8a95bd}
+.side nav,.side .presets{display:flex;flex-direction:column;gap:6px}
+.nav-btn,.preset,.btn-reset{font:inherit;text-align:left;border:0;border-radius:10px;padding:10px 12px;cursor:pointer;color:#dfe4f7;background:transparent;transition:background .15s}
+.nav-btn:hover,.preset:hover{background:var(--side-2)}
+.nav-btn.active{background:var(--brand);color:#fff;font-weight:600}
+.preset{background:var(--side-2);font-size:14px}
+.preset b{color:#7dd3fc}
+.btn-reset{background:#3b1d2a;color:#ffd5df;text-align:center;font-weight:600;margin-top:auto}
+.btn-reset:hover{background:#5a2236}
+.status{font-size:13px;background:var(--side-2);border-radius:10px;padding:10px 12px;color:#c6cdea}
+main{flex:1;padding:28px clamp(16px,4vw,44px) 60px;min-width:0;max-width:1100px}
+.view{display:none}.view.active{display:block}
+h1{font-size:26px;margin:0 0 4px}
+.lead{color:var(--muted);margin:0 0 20px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px;border:1px solid var(--line)}
+.card h3{margin:0 0 6px;font-size:17px}
+.hint{color:var(--muted);font-size:14px;margin:0 0 10px}
+.step{display:flex;gap:16px;align-items:flex-start}
+.stepno{flex:none;width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700}
+.stepbody{flex:1;min-width:0}
+input[type=text]{width:100%;font:inherit;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+input[type=text]:focus,select:focus{outline:3px solid #c7d2fe;border-color:var(--brand)}
+select{font:inherit;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);min-width:110px}
+select.invalid{border-color:var(--bad);background:var(--bad-bg)}
+.btn{font:inherit;font-weight:600;border:1.5px solid var(--line);background:#fff;color:var(--ink);padding:10px 16px;border-radius:10px;cursor:pointer}
+.btn:hover{background:#f5f6fb}
+.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn.primary:hover{background:var(--brand-d)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 16px}
+.alert{border-radius:10px;padding:12px 14px;margin:0 0 14px;font-size:14px}
+.alert[hidden]{display:none}
+.alert.bad{background:var(--bad-bg);color:var(--bad);border:1px solid #f5b5b5}
+.alert.warn{background:var(--warn-bg);color:var(--warn);border:1px solid #f3d38a}
+.alert.info{background:var(--info-bg);color:#1e3a8a;border:1px solid #bfd0ff}
+.alert ul{margin:0;padding-left:20px}
+.drow{border:1px dashed var(--line);border-radius:10px;padding:10px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px 22px}
+.dcell{display:flex;align-items:center;gap:8px;font-size:15px}
+.dlab{white-space:nowrap}
+.checks{display:flex;flex-wrap:wrap;gap:10px}
+.chk{display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);padding:8px 12px;border-radius:10px;cursor:pointer;background:#fff}
+.chk input{width:18px;height:18px}
+.tuple{display:grid;gap:8px;font-size:16px}
+.tuple .row{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}
+.tuple .k{font-weight:700;min-width:44px;color:var(--brand-d)}
+.formal{font-size:20px;font-weight:700;margin-bottom:10px}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px}
+code{background:#f1f3f9;padding:2px 7px;border-radius:6px}
+.tbl-wrap{overflow:auto}
+table.tt{border-collapse:collapse;min-width:240px}
+.tt th,.tt td{border:1px solid var(--line);padding:9px 16px;text-align:center}
+.tt thead th{background:#eef0fa}
+.tt th.st{background:#f7f8fc;text-align:left}
+.mk{color:var(--hl);font-weight:800}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:10px}
+.graph{background:#fbfcff;border:1px solid var(--line);border-radius:12px;padding:6px;overflow:auto}
+.afd-svg{width:100%;height:auto;max-height:560px;display:block}
+.afd-svg .edge{fill:none;stroke:var(--edge);stroke-width:2;stroke-linecap:round}
+.afd-svg .edge.hl{stroke:var(--hl);stroke-width:3.8}
+.afd-svg .arr{fill:var(--edge)}
+.afd-svg .arrH{fill:var(--hl)}
+.afd-svg .node circle{fill:#fff;stroke:var(--node);stroke-width:2.5}
+.afd-svg .node .inner{fill:none;stroke-width:2}
+.afd-svg .node text{fill:var(--ink);font-weight:700;font-family:inherit}
+.afd-svg .node.vis circle{fill:#eef2ff;stroke:var(--hl)}
+.afd-svg .node.cur circle{fill:#fed7aa;stroke:var(--hl);stroke-width:4}
+.afd-svg .node.cur.ok circle{fill:#bbf7d0;stroke:var(--ok)}
+.afd-svg .node.cur.bad circle{fill:#fecaca;stroke:var(--bad)}
+.afd-svg .elabel{fill:var(--ink);font-size:14px;font-weight:700;paint-order:stroke;stroke:#fbfcff;stroke-width:5px;stroke-linejoin:round}
+.afd-svg .elabel.hl{fill:var(--hl)}
+.words{display:grid;gap:10px}
+.wcard{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+.wnum{width:36px;height:36px;border-radius:50%;background:var(--info-bg);color:var(--brand-d);display:grid;place-items:center;font-weight:700}
+.wword{font-size:20px;font-weight:700}
+.eps{font-style:italic;color:var(--brand-d)}
+.wmeta{color:var(--muted);font-size:13px}
+.notice{text-align:center;padding:34px 20px}
+.notice .big{font-size:40px}
+.word-row{display:flex;gap:10px;flex-wrap:wrap}
+.word-row input{flex:1;min-width:200px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px;align-items:center;font-size:13px;color:var(--muted)}
+.chip{font:inherit;font-family:ui-monospace,Menlo,Consolas,monospace;border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:3px 11px;cursor:pointer;font-size:15px}
+.chip:hover{background:var(--info-bg)}
+.res{border-radius:14px;padding:16px 18px;margin:14px 0 0;border:2px solid}
+.res.ok{background:var(--ok-bg);border-color:#86d7a3;color:#14532d}
+.res.bad{background:var(--bad-bg);border-color:#f1a3a3;color:#7f1d1d}
+.res.warnc{background:var(--warn-bg);border-color:#f0c869;color:var(--warn)}
+.res-head{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.badge{font-weight:800;letter-spacing:.04em;padding:4px 12px;border-radius:999px;background:#fff}
+.res.ok .badge{color:var(--ok)}.res.bad .badge{color:var(--bad)}.res.warnc .badge{color:var(--warn)}
+.res-word{font-size:18px;font-weight:700}
+.res-body{display:grid;gap:4px;font-size:15px}
+.anim-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.anim-info{font-size:14px;color:var(--muted)}
+.hist{display:grid;gap:6px;font-size:14px}
+.hrow{display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:6px 0;flex-wrap:wrap}
+.tag{font-weight:700;border-radius:6px;padding:1px 8px;font-size:12px}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}.tag.bad{background:var(--bad-bg);color:var(--bad)}.tag.warnc{background:var(--warn-bg);color:var(--warn)}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(30px);background:#1c2333;color:#fff;padding:11px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:92vw;font-size:14px}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{background:var(--bad)}
+@media (max-width:860px){
+  .app{flex-direction:column}
+  .side{width:100%;height:auto;position:static;flex-direction:column;gap:12px}
+  .side nav{flex-direction:row;flex-wrap:wrap}
+  .side .presets{flex-direction:row;flex-wrap:wrap}
+  .btn-reset{margin-top:0}
+  .step{flex-direction:column;gap:8px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="logo">δ</div><div><b>Simulador AFD</b><small>Estructuras Discretas</small></div></div>
+    <div>
+      <h4>Módulos</h4>
+      <nav>
+        <button class="nav-btn active" data-view="m1">① Construir y Gráfica</button>
+        <button class="nav-btn" data-view="m2">② Cinco palabras reconocidas</button>
+        <button class="nav-btn" data-view="m3">③ Probar palabras</button>
+      </nav>
+    </div>
+    <div>
+      <h4>Carga rápida</h4>
+      <div class="presets">
+        <button class="preset" data-preset="A1"><b>A1</b> · Cantidad par de ceros</button>
+        <button class="preset" data-preset="A2"><b>A2</b> · Terminan en ab</button>
+        <button class="preset" data-preset="A3"><b>A3</b> · Solo ab y ba</button>
+        <button class="preset" data-preset="A4"><b>A4</b> · Lenguaje vacío</button>
+      </div>
+    </div>
+    <div class="status" id="status">Sin autómata construido todavía.</div>
+    <button class="btn-reset" id="btnReset">↺ Reiniciar / Nuevo autómata</button>
+  </aside>
+
+  <main>
+    <!-- ===================== MÓDULO 1 ===================== -->
+    <section id="m1" class="view active">
+      <h1>Módulo 1 · Construir el autómata</h1>
+      <p class="lead">Define paso a paso la 5-tupla <b>M = (Q, Σ, δ, q₀, F)</b>. Al terminar verás la tupla formal, la tabla de transiciones y la gráfica.</p>
+
+      <div class="card step"><div class="stepno">1</div><div class="stepbody">
+        <h3>Q · Conjunto de estados</h3>
+        <p class="hint">Nombres separados por comas. Mínimo 1 estado y sin repetidos. Ejemplo: <code>q0, q1, q2</code></p>
+        <input type="text" id="inQ" placeholder="q0, q1, q2" autocomplete="off" spellcheck="false">
+      </div></div>
+
+      <div class="card step"><div class="stepno">2</div><div class="stepbody">
+        <h3>Σ · Alfabeto</h3>
+        <p class="hint">Símbolos de <b>un solo carácter</b> separados por comas y sin repetidos. Ejemplo: <code>a, b</code></p>
+        <input type="text" id="inS" placeholder="a, b" autocomplete="off" spellcheck="false">
+      </div></div>
+
+      <div class="btn-row"><button class="btn primary" id="btnApply">Aplicar Q y Σ → generar δ</button></div>
+      <div class="alert bad" id="err12" hidden></div>
+
+      <div id="rest" hidden>
+        <div class="card step"><div class="stepno">3</div><div class="stepbody">
+          <h3>δ · Función de transición</h3>
+          <p class="hint">Elige el estado destino para cada par (estado, símbolo). Hay |Q|×|Σ| transiciones y todas son obligatorias.</p>
+          <div id="deltaGrid"></div>
+        </div></div>
+
+        <div class="card step"><div class="stepno">4</div><div class="stepbody">
+          <h3>q₀ · Estado inicial</h3>
+          <p class="hint">Debe pertenecer a Q.</p>
+          <select id="selQ0"></select>
+        </div></div>
+
+        <div class="card step"><div class="stepno">5</div><div class="stepbody">
+          <h3>F · Estados finales (de aceptación)</h3>
+          <p class="hint">Marca 0 o más estados.</p>
+          <div class="checks" id="finals"></div>
+          <div class="alert warn" id="warnF" hidden style="margin-top:12px">⚠ No marcaste ningún estado final: F = ∅. El autómata no aceptará ninguna palabra. Puedes continuar si es lo que quieres.</div>
+        </div></div>
+
+        <div class="alert bad" id="errBuild" hidden></div>
+        <div class="btn-row"><button class="btn primary" id="btnBuild">Construir autómata</button></div>
+      </div>
+
+      <div id="out1" hidden></div>
+    </section>
+
+    <!-- ===================== MÓDULO 2 ===================== -->
+    <section id="m2" class="view">
+      <h1>Módulo 2 · Cinco palabras reconocidas</h1>
+      <div id="m2body"></div>
+    </section>
+
+    <!-- ===================== MÓDULO 3 ===================== -->
+    <section id="m3" class="view">
+      <h1>Módulo 3 · Probar palabras</h1>
+      <div id="m3notice"></div>
+      <div id="m3main" hidden>
+        <div class="card">
+          <h3>Evaluar una palabra</h3>
+          <p class="hint" id="m3hint"></p>
+          <div class="word-row">
+            <input type="text" id="inWord" placeholder="Escribe una palabra (vacío = ε)" autocomplete="off" spellcheck="false">
+            <button class="btn primary" id="btnTest">Evaluar</button>
+            <button class="btn" id="btnClearHist">Limpiar historial</button>
+          </div>
+          <div class="chips" id="chips"></div>
+          <div id="result"></div>
+        </div>
+        <div class="card">
+          <h3>Gráfica del recorrido</h3>
+          <div class="anim-row">
+            <button class="btn" id="btnPlay" disabled>▶ Animar paso a paso</button>
+            <button class="btn" id="btnNext" disabled>⏭ Siguiente paso</button>
+            <button class="btn" id="btnAll" disabled>Ver recorrido completo</button>
+            <span class="anim-info" id="animInfo">Evalúa una palabra para resaltar su recorrido.</span>
+          </div>
+          <div class="graph" id="graph3"></div>
+        </div>
+        <div class="card"><h3>Historial de pruebas</h3><div class="hist" id="history"><span class="hint">Aún no has probado palabras.</span></div></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+// ===== LÓGICA PURA (inicio) — sin acceso al DOM =====
+const MAX_LEN = 10;
+const EPS = 'ε';
+const newDict = () => Object.create(null);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function parseStates(raw){
+  const t = String(raw).trim();
+  if(!t) return {ok:false, error:'Escribe al menos un estado (por ejemplo: q0, q1).'};
+  const items = t.split(',').map(s => s.trim());
+  if(items.some(s => s === '')) return {ok:false, error:'Hay un estado vacío: revisa que no haya comas seguidas ni una coma al final.'};
+  const dup = items.find((s, i) => items.indexOf(s) !== i);
+  if(dup !== undefined) return {ok:false, error:'El estado "' + dup + '" está repetido. Los estados deben ser distintos.'};
+  return {ok:true, items};
+}
+
+function parseAlphabet(raw){
+  const t = String(raw).trim();
+  if(!t) return {ok:false, error:'Escribe al menos un símbolo (por ejemplo: a, b).'};
+  const items = t.split(',').map(s => s.trim());
+  if(items.some(s => s === '')) return {ok:false, error:'Hay un símbolo vacío: revisa que no haya comas seguidas ni una coma al final.'};
+  const bad = items.find(s => Array.from(s).length !== 1);
+  if(bad !== undefined) return {ok:false, error:'El símbolo "' + bad + '" no es válido: cada símbolo debe tener exactamente 1 carácter.'};
+  if(items.includes(EPS)) return {ok:false, error:'El carácter ε está reservado para la palabra vacía y no puede ser un símbolo del alfabeto.'};
+  const dup = items.find((s, i) => items.indexOf(s) !== i);
+  if(dup !== undefined) return {ok:false, error:'El símbolo "' + dup + '" está repetido. Los símbolos deben ser distintos.'};
+  return {ok:true, items};
+}
+
+function makeAutomaton(def){
+  const delta = newDict();
+  def.Q.forEach(q => { delta[q] = newDict(); def.S.forEach(a => { delta[q][a] = def.delta[q][a]; }); });
+  return {Q:def.Q.slice(), S:def.S.slice(), delta, q0:def.q0, F:new Set(def.F), label:def.label || 'Personalizado'};
+}
+
+const PRESETS = {
+  A1:{label:'A1 · Cantidad par de ceros', Q:['q0','q1'], S:['0','1'],
+      delta:{q0:{'0':'q1','1':'q0'}, q1:{'0':'q0','1':'q1'}}, q0:'q0', F:['q0']},
+  A2:{label:'A2 · Palabras que terminan en ab', Q:['s0','s1','s2'], S:['a','b'],
+      delta:{s0:{a:'s1',b:'s0'}, s1:{a:'s1',b:'s2'}, s2:{a:'s1',b:'s0'}}, q0:'s0', F:['s2']},
+  A3:{label:'A3 · Solo ab y ba (con sumidero m)', Q:['q0','q1','q2','q3','m'], S:['a','b'],
+      delta:{q0:{a:'q1',b:'q2'}, q1:{a:'m',b:'q3'}, q2:{a:'q3',b:'m'}, q3:{a:'m',b:'m'}, m:{a:'m',b:'m'}}, q0:'q0', F:['q3']},
+  A4:{label:'A4 · Ninguna palabra (final inalcanzable)', Q:['q0','q1'], S:['a','b'],
+      delta:{q0:{a:'q0',b:'q0'}, q1:{a:'q1',b:'q1'}}, q0:'q0', F:['q1']}
+};
+
+function runWord(M, chars){
+  const path = [M.q0]; let cur = M.q0;
+  for(const c of chars){ cur = M.delta[cur][c]; path.push(cur); }
+  return {path, final:cur, accepted:M.F.has(cur)};
+}
+
+function checkWord(M, raw){
+  let t = String(raw).trim();
+  if(t === EPS) t = '';
+  const chars = Array.from(t);
+  const invalid = [];
+  chars.forEach((c, i) => { if(!M.S.includes(c)) invalid.push({sym:c, pos:i + 1}); });
+  if(invalid.length) return {valid:false, word:t, invalid};
+  const r = runWord(M, chars);
+  return {valid:true, word:t, chars, path:r.path, final:r.final, accepted:r.accepted};
+}
+
+function formatPath(chars, path){
+  let s = path[0];
+  chars.forEach((c, i) => { s += ' -' + c + '-> ' + path[i + 1]; });
+  return s;
+}
+
+function reachableStates(M){
+  const seen = new Set([M.q0]), stack = [M.q0];
+  while(stack.length){
+    const q = stack.pop();
+    for(const a of M.S){ const n = M.delta[q][a]; if(!seen.has(n)){ seen.add(n); stack.push(n); } }
+  }
+  return seen;
+}
+
+// Las `count` palabras aceptadas más cortas, en orden canónico (longitud y luego orden de Σ).
+// reach[k] = estados desde los que, leyendo exactamente k símbolos, se llega a F.
+// Con esa tabla la búsqueda en profundidad nunca entra a ramas sin salida.
+function shortestWords(M, count, maxLen){
+  count = count || 5; maxLen = (maxLen === undefined) ? MAX_LEN : maxLen;
+  const reach = [new Set(M.F)];
+  for(let k = 1; k <= maxLen; k++){
+    const s = new Set();
+    for(const q of M.Q){ if(M.S.some(a => reach[k - 1].has(M.delta[q][a]))) s.add(q); }
+    reach.push(s);
+  }
+  const out = [];
+  for(let L = 0; L <= maxLen && out.length < count; L++){
+    if(!reach[L].has(M.q0)) continue;
+    const dfs = (state, prefix, rem) => {
+      if(out.length >= count) return;
+      if(rem === 0){ out.push(prefix.slice()); return; }
+      for(const a of M.S){
+        const nx = M.delta[state][a];
+        if(reach[rem - 1].has(nx)){
+          prefix.push(a); dfs(nx, prefix, rem - 1); prefix.pop();
+          if(out.length >= count) return;
+        }
+      }
+    };
+    dfs(M.q0, [], L);
+  }
+  return out;
+}
+
+// Construye el SVG del autómata. opts: {prefix, hlEdges:Set('i>j'), hlStates:Set, current, curClass}
+function buildSvg(M, opts){
+  opts = opts || {};
+  const pf = opts.prefix || 'g', r = 26, n = M.Q.length;
+  const idx = newDict(); M.Q.forEach((q, i) => { idx[q] = i; });
+  const pos = [], outA = [];
+  if(n === 1){ pos.push({x:0, y:0}); outA.push(-Math.PI / 2); }
+  else {
+    const R = Math.max(115, n * 36), st = (n === 2) ? Math.PI : -Math.PI / 2;
+    for(let i = 0; i < n; i++){
+      const a = st + 2 * Math.PI * i / n;
+      pos.push({x:R * Math.cos(a), y:R * Math.sin(a)}); outA.push(a);
+    }
+  }
+  // Agrupar transiciones con mismo origen y destino -> una sola flecha con etiqueta "a, b"
+  const groups = new Map();
+  M.Q.forEach((q, i) => {
+    M.S.forEach(a => {
+      const t = M.delta[q][a]; if(t === undefined) return;
+      const j = idx[t], key = i + '>' + j;
+      if(!groups.has(key)) groups.set(key, {i, j, labels:[]});
+      groups.get(key).labels.push(a);
+    });
+  });
+  const loops = new Set(); groups.forEach(g => { if(g.i === g.j) loops.add(g.i); });
+  const hl = opts.hlEdges || new Set(), hs = opts.hlStates || new Set(), cur = opts.current;
+  const f = v => Math.round(v * 10) / 10;
+  const nrm = (dx, dy) => { const l = Math.hypot(dx, dy) || 1; return {x:dx / l, y:dy / l}; };
+  const lab = (x, y, t, c) => '<text class="' + c + '" x="' + f(x) + '" y="' + f(y) + '" text-anchor="middle" dominant-baseline="central">' + t + '</text>';
+  const edges = [], labels = [];
+
+  groups.forEach((g, key) => {
+    const on = hl.has(key), cls = on ? 'edge hl' : 'edge', lc = on ? 'elabel hl' : 'elabel';
+    const mk = 'url(#' + pf + (on ? '-arrH' : '-arr') + ')', txt = esc(g.labels.join(', '));
+    if(g.i === g.j){                       // bucle
+      const P = pos[g.i], a = outA[g.i];
+      const p1 = {x:P.x + Math.cos(a - 0.5) * r, y:P.y + Math.sin(a - 0.5) * r};
+      const p2 = {x:P.x + Math.cos(a + 0.5) * r, y:P.y + Math.sin(a + 0.5) * r};
+      const c1 = {x:P.x + Math.cos(a - 0.35) * (r + 62), y:P.y + Math.sin(a - 0.35) * (r + 62)};
+      const c2 = {x:P.x + Math.cos(a + 0.35) * (r + 62), y:P.y + Math.sin(a + 0.35) * (r + 62)};
+      edges.push('<path class="' + cls + '" marker-end="' + mk + '" d="M' + f(p1.x) + ' ' + f(p1.y) + ' C' + f(c1.x) + ' ' + f(c1.y) + ' ' + f(c2.x) + ' ' + f(c2.y) + ' ' + f(p2.x) + ' ' + f(p2.y) + '"/>');
+      labels.push(lab(P.x + Math.cos(a) * (r + 52), P.y + Math.sin(a) * (r + 52), txt, lc));
+      return;
+    }
+    const A = pos[g.i], B = pos[g.j];
+    const u = nrm(B.x - A.x, B.y - A.y), nx = -u.y, ny = u.x;
+    const bidir = groups.has(g.j + '>' + g.i);
+    if(!bidir){                            // flecha recta
+      const S = {x:A.x + u.x * r, y:A.y + u.y * r}, E = {x:B.x - u.x * r, y:B.y - u.y * r};
+      edges.push('<path class="' + cls + '" marker-end="' + mk + '" d="M' + f(S.x) + ' ' + f(S.y) + ' L' + f(E.x) + ' ' + f(E.y) + '"/>');
+      labels.push(lab((S.x + E.x) / 2 + nx * 13, (S.y + E.y) / 2 + ny * 13, txt, lc));
+    } else {                               // ida y vuelta: dos curvas separadas
+      const C = {x:(A.x + B.x) / 2 + nx * 84, y:(A.y + B.y) / 2 + ny * 84};
+      const sd = nrm(C.x - A.x, C.y - A.y), ed = nrm(C.x - B.x, C.y - B.y);
+      const S = {x:A.x + sd.x * r, y:A.y + sd.y * r}, E = {x:B.x + ed.x * r, y:B.y + ed.y * r};
+      edges.push('<path class="' + cls + '" marker-end="' + mk + '" d="M' + f(S.x) + ' ' + f(S.y) + ' Q' + f(C.x) + ' ' + f(C.y) + ' ' + f(E.x) + ' ' + f(E.y) + '"/>');
+      const mx = 0.25 * S.x + 0.5 * C.x + 0.25 * E.x, my = 0.25 * S.y + 0.5 * C.y + 0.25 * E.y;
+      labels.push(lab(mx + nx * 14, my + ny * 14, txt, lc));
+    }
+  });
+
+  // Flecha de entrada al estado inicial (sin estado de origen)
+  const ip = idx[M.q0], ai = loops.has(ip) ? outA[ip] - Math.PI / 2 : outA[ip], IP = pos[ip];
+  const ia = {x:IP.x + Math.cos(ai) * (r + 52), y:IP.y + Math.sin(ai) * (r + 52)};
+  const ib = {x:IP.x + Math.cos(ai) * r, y:IP.y + Math.sin(ai) * r};
+  edges.push('<path class="edge" marker-end="url(#' + pf + '-arr)" d="M' + f(ia.x) + ' ' + f(ia.y) + ' L' + f(ib.x) + ' ' + f(ib.y) + '"/>');
+
+  // Estados (doble círculo si son finales)
+  const nodes = M.Q.map((q, i) => {
+    const P = pos[i], isF = M.F.has(q);
+    let c = 'node'; if(isF) c += ' final'; if(hs.has(q)) c += ' vis';
+    if(q === cur) c += ' cur' + (opts.curClass ? ' ' + opts.curClass : '');
+    const ch = Array.from(q), shown = ch.length > 6 ? ch.slice(0, 5).join('') + '…' : q;
+    const fs = ch.length <= 3 ? 15 : (ch.length <= 5 ? 12 : 10);
+    return '<g class="' + c + '"><title>' + esc(q) + '</title><circle cx="' + f(P.x) + '" cy="' + f(P.y) + '" r="' + r + '"/>' +
+      (isF ? '<circle class="inner" cx="' + f(P.x) + '" cy="' + f(P.y) + '" r="20.5"/>' : '') +
+      '<text x="' + f(P.x) + '" y="' + f(P.y) + '" text-anchor="middle" dominant-baseline="central" style="font-size:' + fs + 'px">' + esc(shown) + '</text></g>';
+  });
+
+  const M0 = 110, xs = pos.map(p => p.x), ys = pos.map(p => p.y);
+  const x0 = Math.min.apply(null, xs) - r - M0, y0 = Math.min.apply(null, ys) - r - M0;
+  const w = Math.max.apply(null, xs) - Math.min.apply(null, xs) + 2 * (r + M0);
+  const h = Math.max.apply(null, ys) - Math.min.apply(null, ys) + 2 * (r + M0);
+  const marker = (id, cl) => '<marker id="' + pf + id + '" viewBox="0 0 12 12" refX="12" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto"><path class="' + cl + '" d="M0 0 L12 6 L0 12 z"/></marker>';
+  return '<svg class="afd-svg" xmlns="http://www.w3.org/2000/svg" viewBox="' + f(x0) + ' ' + f(y0) + ' ' + f(w) + ' ' + f(h) + '" role="img" aria-label="Gráfica del autómata finito determinista">' +
+    '<defs>' + marker('-arr', 'arr') + marker('-arrH', 'arrH') + '</defs>' +
+    edges.join('') + nodes.join('') + labels.join('') + '</svg>';
+}
+// ===== LÓGICA PURA (fin) =====
+
+// ===================== INTERFAZ =====================
+const $ = id => document.getElementById(id);
+const dk = (q, a) => q + '\u0001' + a;
+const wd = s => s === '' ? EPS : s;
+const form = {deltaSel:newDict(), q0:'', F:new Set()};
+let draft = null, automaton = null, lastRun = null, history = [], timer = null, animK = 0, currentView = 'm1', toastT = null;
+
+function toast(msg, isErr){
+  const t = $('toast'); t.textContent = msg; t.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(toastT); toastT = setTimeout(() => { t.className = ''; }, 2800);
+}
+const safe = fn => (...a) => { try { return fn(...a); } catch(err){ console.error(err); toast('Ocurrió un error inesperado, pero puedes seguir usando el simulador.', true); } };
+function showAlert(id, msgs){
+  const el = $(id); const list = Array.isArray(msgs) ? msgs : [msgs];
+  el.innerHTML = list.length === 1 ? esc(list[0]) : '<ul>' + list.map(m => '<li>' + esc(m) + '</li>').join('') + '</ul>';
+  el.hidden = false;
+}
+const hideAlert = id => { $(id).hidden = true; };
+const setList = arr => '{' + arr.map(esc).join(', ') + '}';
+
+// ---------- Navegación ----------
+function showView(v){
+  stopAnim(); currentView = v;
+  document.querySelectorAll('.view').forEach(s => s.classList.toggle('active', s.id === v));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  if(v === 'm2') renderM2();
+  if(v === 'm3') renderM3();
+  window.scrollTo(0, 0);
+}
+function noticeHTML(){
+  return '<div class="card notice"><div class="big">🧩</div><h3>Todavía no hay un autómata</h3>' +
+    '<p class="hint">Primero construye uno en el Módulo 1 o carga A1, A2, A3 o A4 con un clic desde la barra lateral.</p>' +
+    '<button class="btn primary" data-go="m1">Ir al Módulo 1</button></div>';
+}
+function updateStatus(){
+  $('status').innerHTML = automaton ? 'Autómata activo:<br><b>' + esc(automaton.label) + '</b><br>' + automaton.Q.length + ' estado(s), |Σ| = ' + automaton.S.length : 'Sin autómata construido todavía.';
+}
+
+// ---------- Módulo 1: formulario ----------
+function applyQS(){
+  const pq = parseStates($('inQ').value), ps = parseAlphabet($('inS').value), errs = [];
+  if(!pq.ok) errs.push('Q: ' + pq.error);
+  if(!ps.ok) errs.push('Σ: ' + ps.error);
+  if(errs.length){ showAlert('err12', errs); $('rest').hidden = true; draft = null; return false; }
+  hideAlert('err12'); hideAlert('errBuild');
+  draft = {Q:pq.items, S:ps.items};
+  const Q = draft.Q, S = draft.S, keep = newDict();
+  Q.forEach(q => S.forEach(a => { const v = form.deltaSel[dk(q, a)]; if(v !== undefined && Q.includes(v)) keep[dk(q, a)] = v; }));
+  form.deltaSel = keep;
+  if(!Q.includes(form.q0)) form.q0 = '';
+  form.F = new Set([...form.F].filter(q => Q.includes(q)));
+
+  $('deltaGrid').innerHTML = Q.map(q => '<div class="drow">' + S.map(a => {
+    const cur = form.deltaSel[dk(q, a)];
+    return '<label class="dcell"><span class="dlab">δ(<b>' + esc(q) + '</b>, <b>' + esc(a) + '</b>) =</span><select data-q="' + esc(q) + '" data-a="' + esc(a) + '"><option value="">— elige —</option>' +
+      Q.map(t => '<option value="' + esc(t) + '"' + (t === cur ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select></label>';
+  }).join('') + '</div>').join('');
+  $('selQ0').innerHTML = '<option value="">— elige —</option>' + Q.map(q => '<option value="' + esc(q) + '"' + (q === form.q0 ? ' selected' : '') + '>' + esc(q) + '</option>').join('');
+  $('finals').innerHTML = Q.map(q => '<label class="chk"><input type="checkbox" value="' + esc(q) + '"' + (form.F.has(q) ? ' checked' : '') + '> ' + esc(q) + '</label>').join('');
+  $('rest').hidden = false; updateWarnF();
+  return true;
+}
+function updateWarnF(){ $('warnF').hidden = form.F.size > 0; }
+
+function doBuild(label){
+  if(!draft && !applyQS()) return false;
+  const Q = draft.Q, S = draft.S, delta = newDict(), missing = [];
+  Q.forEach(q => { delta[q] = newDict(); S.forEach(a => { const v = form.deltaSel[dk(q, a)]; if(!v) missing.push('δ(' + q + ', ' + a + ')'); else delta[q][a] = v; }); });
+  const errs = [];
+  if(missing.length) errs.push('Faltan ' + missing.length + ' transición(es) por definir: ' + missing.slice(0, 6).join(', ') + (missing.length > 6 ? ' …' : '') + '.');
+  if(!form.q0) errs.push('Elige el estado inicial q₀.');
+  if(errs.length){
+    showAlert('errBuild', errs);
+    let first = null;
+    $('deltaGrid').querySelectorAll('select').forEach(s => { const bad = s.value === ''; s.classList.toggle('invalid', bad); if(bad && !first) first = s; });
+    if(first) first.scrollIntoView({block:'center', behavior:'smooth'});
+    return false;
+  }
+  hideAlert('errBuild');
+  automaton = makeAutomaton({Q, S, delta, q0:form.q0, F:[...form.F], label:label || 'Autómata personalizado'});
+  resetM3(); updateStatus(); renderOut1();
+  toast('Autómata construido correctamente.');
+  return true;
+}
+
+function renderOut1(){
+  const M = automaton, out = $('out1');
+  const Fl = M.Q.filter(q => M.F.has(q));
+  let tuple = '<div class="card"><h3>5-tupla formal</h3><div class="formal">M = (Q, Σ, δ, q₀, F)</div><div class="tuple">' +
+    '<div class="row"><span class="k">Q</span> = <span class="mono">' + setList(M.Q) + '</span></div>' +
+    '<div class="row"><span class="k">Σ</span> = <span class="mono">' + setList(M.S) + '</span></div>' +
+    '<div class="row"><span class="k">δ</span> : Q × Σ → Q &nbsp;(ver tabla)</div>' +
+    '<div class="row"><span class="k">q₀</span> = <span class="mono">' + esc(M.q0) + '</span></div>' +
+    '<div class="row"><span class="k">F</span> = <span class="mono">' + (Fl.length ? setList(Fl) : '∅') + '</span></div></div>';
+  if(!Fl.length) tuple += '<div class="alert warn" style="margin-top:12px">⚠ F está vacío: este autómata no acepta ninguna palabra.</div>';
+  tuple += '</div>';
+
+  let tbl = '<div class="card"><h3>Tabla de transiciones</h3><div class="tbl-wrap"><table class="tt"><thead><tr><th>Estado</th>' + M.S.map(a => '<th>' + esc(a) + '</th>').join('') + '</tr></thead><tbody>';
+  M.Q.forEach(q => {
+    const mark = (q === M.q0 ? '→' : '') + (M.F.has(q) ? '*' : '');
+    tbl += '<tr><th class="st">' + (mark ? '<span class="mk">' + mark + '</span> ' : '') + esc(q) + '</th>' + M.S.map(a => '<td>' + esc(M.delta[q][a]) + '</td>').join('') + '</tr>';
+  });
+  tbl += '</tbody></table></div><div class="legend"><span><b class="mk">→</b> estado inicial</span><span><b class="mk">*</b> estado final</span></div></div>';
+
+  const gr = '<div class="card"><h3>Gráfica del autómata</h3><div class="graph">' + buildSvg(M, {prefix:'g1'}) + '</div>' +
+    '<div class="legend"><span>Flecha sin origen = estado inicial</span><span>Doble círculo = estado final</span><span>Etiqueta «a, b» = varios símbolos en la misma flecha</span></div></div>';
+  out.innerHTML = '<h2 style="margin:26px 0 12px">Resultado</h2>' + tuple + tbl + gr;
+  out.hidden = false;
+  out.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ---------- Módulo 2 ----------
+function renderM2(){
+  const el = $('m2body');
+  if(!automaton){ el.innerHTML = noticeHTML(); return; }
+  const M = automaton, words = shortestWords(M, 5, MAX_LEN);
+  let h = '<p class="lead">Las 5 palabras más cortas que acepta el autómata, en <b>orden canónico</b>: primero por longitud (de 0 a ' + MAX_LEN + ') y, con igual longitud, según el orden de Σ = ' + setList(M.S) + '.</p>';
+  if(!words.length){
+    let why;
+    if(M.F.size === 0) why = 'F es vacío: ningún estado es final, así que no se acepta ninguna palabra.';
+    else if(![...M.F].some(q => reachableStates(M).has(q))) why = 'Ningún estado final es alcanzable desde q₀ = ' + M.q0 + '. El lenguaje reconocido es vacío: L(M) = ∅.';
+    else why = 'No existe ninguna palabra aceptada de longitud ≤ ' + MAX_LEN + ' (los estados finales quedan a más de ' + MAX_LEN + ' símbolos de distancia).';
+    h += '<div class="card"><div class="alert info" style="margin:0"><b>0 palabras reconocidas.</b> ' + esc(why) + '</div></div>';
+  } else {
+    h += '<div class="words">' + words.map((chars, i) => {
+      const r = runWord(M, chars), w = chars.join('');
+      return '<div class="wcard"><div class="wnum">' + (i + 1) + '</div><div><div class="wword">' + (w === '' ? '<span class="eps">ε</span>' : esc(w)) + '</div>' +
+        '<div class="mono">' + esc(formatPath(chars, r.path)) + '</div>' +
+        '<div class="wmeta">longitud ' + chars.length + (w === '' ? ' · palabra vacía: no se lee ningún símbolo y q₀ ∈ F' : '') + ' · termina en ' + esc(r.final) + ' ∈ F</div></div></div>';
+    }).join('') + '</div>';
+    if(words.length < 5) h += '<div class="alert info" style="margin-top:14px">Solo se encontraron <b>' + words.length + '</b> palabra(s) reconocida(s) de longitud ≤ ' + MAX_LEN + '; por eso no aparecen 5.</div>';
+  }
+  el.innerHTML = h;
+}
+
+// ---------- Módulo 3 ----------
+function resetM3(){
+  stopAnim(); lastRun = null; history = []; animK = 0;
+  $('result').innerHTML = ''; $('inWord').value = '';
+  $('history').innerHTML = '<span class="hint">Aún no has probado palabras.</span>';
+  $('animInfo').textContent = 'Evalúa una palabra para resaltar su recorrido.';
+  setAnimButtons(false);
+}
+function setAnimButtons(on){ ['btnPlay', 'btnNext', 'btnAll'].forEach(id => { $(id).disabled = !on; }); }
+
+function renderM3(){
+  if(!automaton){ $('m3notice').innerHTML = noticeHTML(); $('m3main').hidden = true; return; }
+  $('m3notice').innerHTML = ''; $('m3main').hidden = false;
+  const M = automaton;
+  $('m3hint').innerHTML = 'Escribe una palabra sobre Σ = <b>' + setList(M.S) + '</b>. Si lo dejas vacío se prueba la palabra vacía <b>ε</b>.';
+  $('chips').innerHTML = '<span>Insertar:</span>' + M.S.map(a => '<button class="chip" data-sym="' + esc(a) + '">' + esc(a) + '</button>').join('') + '<button class="chip" data-sym="">ε (vaciar)</button>';
+  drawGraph3(lastRun ? lastRun.chars.length : null);
+}
+
+function drawGraph3(k){
+  const M = automaton; if(!M) return;
+  const o = {prefix:'g3'};
+  if(lastRun && k !== null){
+    const hl = new Set(), vs = new Set([lastRun.path[0]]);
+    for(let t = 1; t <= k; t++){ hl.add(M.Q.indexOf(lastRun.path[t - 1]) + '>' + M.Q.indexOf(lastRun.path[t])); vs.add(lastRun.path[t]); }
+    o.hlEdges = hl; o.hlStates = vs; o.current = lastRun.path[k];
+    o.curClass = (k === lastRun.chars.length) ? (lastRun.accepted ? 'ok' : 'bad') : '';
+  }
+  $('graph3').innerHTML = buildSvg(M, o);
+}
+
+function evaluate(){
+  const M = automaton; if(!M) return;
+  stopAnim();
+  const r = checkWord(M, $('inWord').value);
+  if(!r.valid){
+    lastRun = null; setAnimButtons(false); drawGraph3(null);
+    $('animInfo').textContent = 'La palabra no es válida, no hay recorrido que mostrar.';
+    $('result').innerHTML = '<div class="res warnc"><div class="res-head"><span class="badge">⚠ SÍMBOLO NO VÁLIDO</span><span class="res-word">w = «' + esc(r.word) + '»</span></div><div class="res-body">' +
+      '<div>La palabra contiene símbolos que no pertenecen a Σ = ' + setList(M.S) + ':</div><ul style="margin:4px 0 0;padding-left:20px">' +
+      r.invalid.map(x => '<li>Posición <b>' + x.pos + '</b>: «' + esc(x.sym) + '»</li>').join('') + '</ul></div></div>';
+    addHistory({w:wd(r.word), kind:'warnc', text:'símbolo(s) fuera de Σ en posición ' + r.invalid.map(x => x.pos).join(', ')});
+    return;
+  }
+  lastRun = r; animK = r.chars.length; setAnimButtons(true);
+  const kind = r.accepted ? 'ok' : 'bad';
+  $('result').innerHTML = '<div class="res ' + kind + '"><div class="res-head"><span class="badge">' + (r.accepted ? '✔ ACEPTADA' : '✘ RECHAZADA') + '</span><span class="res-word">w = «' + esc(wd(r.word)) + '»</span></div><div class="res-body">' +
+    '<div><b>Recorrido:</b> <span class="mono">' + esc(formatPath(r.chars, r.path)) + '</span></div>' +
+    '<div><b>Estado final alcanzado:</b> ' + esc(r.final) + ' (' + (r.accepted ? 'pertenece' : 'no pertenece') + ' a F)</div></div></div>';
+  drawGraph3(r.chars.length);
+  $('animInfo').textContent = 'Recorrido completo resaltado. Pulsa «Animar» para verlo paso a paso.';
+  addHistory({w:wd(r.word), kind, text:'estado final ' + r.final});
+}
+
+function addHistory(e){
+  history.unshift(e); if(history.length > 40) history.pop();
+  $('history').innerHTML = history.map(x => '<div class="hrow"><span class="tag ' + x.kind + '">' + (x.kind === 'ok' ? 'ACEPTADA' : x.kind === 'bad' ? 'RECHAZADA' : 'INVÁLIDA') + '</span><b class="mono">' + esc(x.w) + '</b><span class="hint" style="margin:0">' + esc(x.text) + '</span></div>').join('');
+}
+
+function stopAnim(){ if(timer){ clearInterval(timer); timer = null; } const b = $('btnPlay'); if(b) b.textContent = '▶ Animar paso a paso'; }
+function showStep(k){
+  animK = k; drawGraph3(k);
+  const n = lastRun.chars.length;
+  if(n === 0){ $('animInfo').textContent = 'Palabra vacía ε: no hay pasos, el autómata se queda en ' + lastRun.path[0] + (lastRun.accepted ? ' → ACEPTADA.' : ' → RECHAZADA.'); return; }
+  if(k === 0) $('animInfo').textContent = 'Paso 0 de ' + n + ' · estado inicial ' + lastRun.path[0];
+  else $('animInfo').textContent = 'Paso ' + k + ' de ' + n + ' · δ(' + lastRun.path[k - 1] + ', ' + lastRun.chars[k - 1] + ') = ' + lastRun.path[k] + (k === n ? (lastRun.accepted ? ' → ACEPTADA' : ' → RECHAZADA') : '');
+}
+function playAnim(){
+  if(!lastRun) return;
+  if(timer){ stopAnim(); return; }
+  const n = lastRun.chars.length;
+  showStep((animK > 0 && animK < n) ? animK : 0);
+  if(n === 0) return;
+  $('btnPlay').textContent = '⏸ Pausar';
+  timer = setInterval(safe(() => { if(animK >= n){ stopAnim(); return; } showStep(animK + 1); if(animK >= n) stopAnim(); }), 1000);
+}
+function nextStep(){ if(!lastRun) return; stopAnim(); const n = lastRun.chars.length; showStep(animK >= n ? 0 : animK + 1); }
+function showAll(){ if(!lastRun) return; stopAnim(); showStep(lastRun.chars.length); }
+
+// ---------- Presets y reinicio ----------
+function loadPreset(key){
+  const P = PRESETS[key]; if(!P) return;
+  $('inQ').value = P.Q.join(', '); $('inS').value = P.S.join(', ');
+  form.deltaSel = newDict();
+  P.Q.forEach(q => P.S.forEach(a => { form.deltaSel[dk(q, a)] = P.delta[q][a]; }));
+  form.q0 = P.q0; form.F = new Set(P.F);
+  if(applyQS() && doBuild(P.label)){
+    const keepView = currentView;
+    showView(keepView);
+    if(keepView === 'm1') $('out1').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+function resetAll(){
+  automaton = null; draft = null; form.deltaSel = newDict(); form.q0 = ''; form.F = new Set();
+  $('inQ').value = ''; $('inS').value = '';
+  $('rest').hidden = true; $('out1').hidden = true; $('out1').innerHTML = '';
+  hideAlert('err12'); hideAlert('errBuild');
+  resetM3(); updateStatus(); showView('m1');
+  toast('Listo para construir un nuevo autómata.');
+}
+
+// ---------- Eventos ----------
+function init(){
+  document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', safe(() => showView(b.dataset.view))));
+  document.querySelectorAll('.preset').forEach(b => b.addEventListener('click', safe(() => loadPreset(b.dataset.preset))));
+  document.addEventListener('click', safe(e => {
+    const g = e.target.closest('[data-go]'); if(g) showView(g.dataset.go);
+    const c = e.target.closest('.chip');
+    if(c){ const w = $('inWord'); w.value = c.dataset.sym === '' ? '' : w.value + c.dataset.sym; w.focus(); }
+  }));
+  $('btnReset').addEventListener('click', safe(resetAll));
+  $('btnApply').addEventListener('click', safe(applyQS));
+  $('btnBuild').addEventListener('click', safe(() => doBuild()));
+  ['inQ', 'inS'].forEach(id => {
+    $(id).addEventListener('keydown', safe(e => { if(e.key === 'Enter') applyQS(); }));
+    $(id).addEventListener('input', safe(() => { draft = null; $('rest').hidden = true; }));
+  });
+  $('deltaGrid').addEventListener('change', safe(e => {
+    const s = e.target; if(!s.matches('select')) return;
+    const k = dk(s.dataset.q, s.dataset.a);
+    if(s.value === '') delete form.deltaSel[k]; else form.deltaSel[k] = s.value;
+    s.classList.remove('invalid');
+  }));
+  $('selQ0').addEventListener('change', safe(e => { form.q0 = e.target.value; }));
+  $('finals').addEventListener('change', safe(e => {
+    const c = e.target; if(c.type !== 'checkbox') return;
+    if(c.checked) form.F.add(c.value); else form.F.delete(c.value);
+    updateWarnF();
+  }));
+  $('btnTest').addEventListener('click', safe(evaluate));
+  $('inWord').addEventListener('keydown', safe(e => { if(e.key === 'Enter') evaluate(); }));
+  $('btnClearHist').addEventListener('click', safe(() => { history = []; $('history').innerHTML = '<span class="hint">Aún no has probado palabras.</span>'; }));
+  $('btnPlay').addEventListener('click', safe(playAnim));
+  $('btnNext').addEventListener('click', safe(nextStep));
+  $('btnAll').addEventListener('click', safe(showAll));
+  updateStatus();
+}
+init();
+</script>
+</body>
+</html>
